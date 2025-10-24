@@ -34,6 +34,28 @@ def bootstrap_ci(diff: np.ndarray, n: int = 5000, seed: int = 0):
     return np.percentile(means, [2.5, 97.5])
 
 
+def sensitivity_section(sens: pd.DataFrame, pa_main: pd.DataFrame) -> list[str]:
+    """Re-run of the GNNs with a different configuration (wider, more dropout, 10x weight decay)."""
+    sa = sens.groupby(["dms_id", "model"]).spearman.mean().unstack()
+    sa = sa.loc[sa.index.intersection(pa_main.index)]
+    n = len(sa)
+    out = ["", "## Sensitivity: does the conclusion survive a different GNN configuration?", "",
+           f"GNNs re-run on {n} assays with dim 128, dropout 0.3 and weight decay 1e-2 (default: 64, 0.2, 1e-3).",
+           "", "| model | default config | sensitivity config |", "|---|---|---|"]
+    for m in [c for c in ORDER if c in sa.columns]:
+        out.append(f"| {m} | {pa_main.loc[sa.index, m].mean():.3f} | {sa[m].mean():.3f} |")
+    out += ["", "Paired structure comparisons under the sensitivity configuration:", "",
+            "| comparison | mean diff | 95% CI | wins |", "|---|---|---|---|"]
+    for a, b, label in COMPARISONS[:4]:
+        d = (sa[a] - sa[b]).dropna().to_numpy()
+        lo, hi = bootstrap_ci(d)
+        out.append(f"| {label} | {d.mean():+.3f} | [{lo:+.3f}, {hi:+.3f}] | {(d > 0).sum()}/{len(d)} |")
+    d = (sa["gnn-contact+llr"] - pa_main.loc[sa.index, "ridge"]).dropna().to_numpy()
+    lo, hi = bootstrap_ci(d)
+    out.append(f"| contact GNN + zero-shot vs ridge | {d.mean():+.3f} | [{lo:+.3f}, {hi:+.3f}] | {(d > 0).sum()}/{len(d)} |")
+    return out
+
+
 def main() -> None:
     df = pd.read_csv(RES / "cv.csv")
     pa = per_assay(df)
@@ -67,6 +89,9 @@ def main() -> None:
     for dms_id, row in pa.iterrows():
         out.append(f"| {dms_id} | {meta.loc[dms_id, 'selection_type']} | {meta.loc[dms_id, 'seq_len']} | "
                    + " | ".join(f"{row[m]:.2f}" for m in ORDER) + " |")
+    sens_path = RES / "cv_sensitivity.csv"
+    if sens_path.exists():
+        out += sensitivity_section(pd.read_csv(sens_path), pa)
     (RES / "summary.md").write_text("\n".join(out) + "\n")
 
     fig, axes = plt.subplots(1, 2, figsize=(11, 4))
