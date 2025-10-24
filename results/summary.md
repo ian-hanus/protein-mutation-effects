@@ -60,3 +60,26 @@ Paired differences across assays (first model minus second). The interval is a
 | RL40A_YEAST_Roscoe_2013 | OrganismalFitness | 128 | 0.42 | 0.61 | 0.60 | 0.60 | 0.63 | 0.61 | 0.64 | 0.65 |
 | SBI_STAAM_Tsuboyama_2023_2JVG | Stability | 56 | 0.25 | 0.45 | 0.32 | 0.36 | 0.39 | 0.33 | 0.35 | 0.35 |
 | SPG2_STRSG_Tsuboyama_2023_5UBS | Stability | 56 | 0.12 | 0.66 | 0.54 | 0.52 | 0.54 | 0.58 | 0.60 | 0.60 |
+
+## Sensitivity: does the conclusion survive a different GNN configuration?
+
+GNNs re-run on 17 assays with dim 128, dropout 0.3 and weight decay 1e-2 (default: 64, 0.2, 1e-3).
+
+| model | default config | sensitivity config |
+|---|---|---|
+| gnn-identity | 0.387 | 0.371 |
+| gnn-window | 0.395 | 0.384 |
+| gnn-contact | 0.411 | 0.394 |
+| gnn-identity+llr | 0.424 | 0.419 |
+| gnn-window+llr | 0.433 | 0.431 |
+| gnn-contact+llr | 0.445 | 0.440 |
+
+Paired structure comparisons under the sensitivity configuration:
+
+| comparison | mean diff | 95% CI | wins |
+|---|---|---|---|
+| contact vs identity (no zero-shot input) | +0.023 | [+0.012, +0.035] | 14/17 |
+| contact vs sequence window (no zero-shot input) | +0.010 | [+0.002, +0.019] | 13/17 |
+| contact vs identity (+ zero-shot input) | +0.021 | [+0.008, +0.035] | 13/17 |
+| contact vs sequence window (+ zero-shot input) | +0.008 | [-0.001, +0.019] | 11/17 |
+| contact GNN + zero-shot vs ridge | -0.007 | [-0.048, +0.028] | 11/17 |
